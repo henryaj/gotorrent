@@ -36,7 +36,7 @@ func (t *TrackerClientImpl) GetPeers() ([]string, error) {
 	}
 
 	queryParams := map[string]string{
-		"info_hash": url.QueryEscape(hash),
+		"info_hash": string(hash),
 		"peer_id":   url.QueryEscape(string(newClientID())),
 		"port":      "6881",
 		"uploaded":  "0",
@@ -63,15 +63,14 @@ func (t *TrackerClientImpl) GetPeers() ([]string, error) {
 
 }
 
-func calculateInfoHash(info map[string]interface{}) (string, error) {
+func calculateInfoHash(info map[string]interface{}) ([]byte, error) {
 	encodedInfo := new(bytes.Buffer)
 	bencode.Marshal(encodedInfo, info)
 
 	hash := sha1.New()
 	hash.Write(encodedInfo.Bytes())
 
-	infoHash := string(hash.Sum(nil))
-	return infoHash, nil
+	return hash.Sum(nil), nil
 }
 
 func doRequest(announceURL string, queryParams map[string]string) (*http.Response, error) {
