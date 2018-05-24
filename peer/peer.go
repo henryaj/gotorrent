@@ -1,8 +1,9 @@
 package peer
 
 import (
+	"encoding/binary"
 	"fmt"
-	"io"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -62,37 +63,41 @@ func handshakeWithPeer(address string, port int, infoHash, peerID []byte) error 
 
 	handshake := constructHandshake(infoHash, peerID)
 
-	_, err = conn.Write(handshake)
+	defer conn.Close()
+	binary.Write(conn, binary.BigEndian, &handshake)
+
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
-	var response []byte
-	for {
-		_, err := conn.Read(response)
-		if err != nil {
-			if err != io.EOF {
-				return errors.Wrap(err, 0)
-			}
-			break
-		}
-	}
+	buf := make([]byte, 1024)
+	n, _ := conn.Read(buf)
+
+	log.Printf("Receive: %s", buf[:n])
 
 	return nil
 
 }
 
-func constructHandshake(infoHash, peerID []byte) []byte {
+type handshake struct {
+	len      uint8
+	protocol []byte
+	reserved [8]uint8
+	infoHash [20]byte
+	peerID   [20]byte
+}
+
+func constructHandshake(infoHash, peerID []byte) *handshake {
 	protoIdentifier := []byte("BitTorrent protocol")
-	identifierLength := rune(len(protoIdentifier))
-	reserved := []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
-	var handshake []byte
-	handshake = append(handshake, byte(identifierLength))
-	handshake = append(handshake, protoIdentifier...)
-	handshake = append(handshake, reserved...)
-	handshake = append(handshake, infoHash...)
-	handshake = append(handshake, peerID...)
+	h := &handshake{
+		len:      uint8(len(protoIdentifier)),
+		protocol: protoIdentifier,
+		reserved: [8]uint8{0, 0, 0, 0, 0, 0, 0, 0},
+	}
 
-	return handshake
+	copy(h.infoHash[:], infoHash)
+	copy(h.peerID[:], peerID)
+
+	return h
 }
