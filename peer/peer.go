@@ -50,11 +50,6 @@ func (c *PeerClientImpl) ConnectAndDownload() error {
 }
 
 func handshakeWithPeer(address string, port int, infoHash, peerID []byte) error {
-	// addr, err := net.ResolveTCPAddr("tcp", address)
-	// if err != nil {
-	// 	return errors.Wrap(err, 0)
-	// }
-
 	addr := fmt.Sprintf("[" + address + "]:" + strconv.Itoa(port))
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
