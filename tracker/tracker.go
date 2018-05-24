@@ -2,13 +2,12 @@ package tracker
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 
+	"github.com/go-errors/errors"
 	bencode "github.com/jackpal/bencode-go"
 )
 
@@ -18,15 +17,30 @@ type TrackerClient interface {
 
 type TrackerClientImpl struct {
 	metadata map[string]interface{}
+	clientID []byte
 }
 
-func NewTrackerClient(m map[string]interface{}) *TrackerClientImpl {
+type announceResponse struct {
+	Complete   int    `bencode:"complete"`
+	Incomplete int    `bencode:"incomplete"`
+	Interval   int    `bencode:"interval"`
+	Peers      []Peer `bencode:"peers"`
+}
+
+type Peer struct {
+	IP     string `bencode:"complete"`
+	PeerID []byte `bencode:"peer id"`
+	Port   int    `bencode:"port"`
+}
+
+func NewTrackerClient(m map[string]interface{}, clientID []byte) *TrackerClientImpl {
 	return &TrackerClientImpl{
 		metadata: m,
+		clientID: clientID,
 	}
 }
 
-func (t *TrackerClientImpl) GetPeers() ([]string, error) {
+func (t *TrackerClientImpl) GetPeers() ([]Peer, error) {
 	infoBlock := t.metadata["info"].(map[string]interface{})
 
 	hash, err := calculateInfoHash(infoBlock)
@@ -37,7 +51,7 @@ func (t *TrackerClientImpl) GetPeers() ([]string, error) {
 
 	queryParams := map[string]string{
 		"info_hash": string(hash),
-		"peer_id":   url.QueryEscape(string(newClientID())),
+		"peer_id":   string(t.clientID),
 		"port":      "6881",
 		"uploaded":  "0",
 		"left":      "0",
@@ -46,21 +60,51 @@ func (t *TrackerClientImpl) GetPeers() ([]string, error) {
 	}
 
 	announceURL := t.metadata["announce"].(string)
-	fmt.Println(announceURL)
-
-	res, err := doRequest(announceURL, queryParams)
-
-	if res.StatusCode != http.StatusAccepted {
-		body, err := bencode.Decode(res.Body)
-		if err != nil {
-			body, _ := ioutil.ReadAll(res.Body)
-			fmt.Println(string(body))
-		}
-		return nil, fmt.Errorf("Error getting list of peers: %s\n", body)
+	if announceURL == "" {
+		return nil, errors.New("no announce URL found in torrent metadata")
 	}
 
-	return nil, nil
+	fmt.Printf("Announce URL found: %s\n", announceURL)
 
+	res, err := doRequest(announceURL, queryParams)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		bodyText, _ := ioutil.ReadAll(res.Body)
+		fmt.Println(string(bodyText))
+		errorMsg, err := bencode.Decode(res.Body)
+		if err != nil {
+			panic(errors.Wrap(err, 0))
+		}
+		return nil, fmt.Errorf("Error getting list of peers: %s\n", errorMsg)
+	}
+
+	announce := announceResponse{}
+	err = bencode.Unmarshal(res.Body, &announce)
+	if err != nil {
+		panic(err)
+	}
+
+	prunedPeers := prunePeers(announce.Peers, t.clientID)
+
+	return prunedPeers, nil
+}
+
+func prunePeers(peers []Peer, clientID []byte) []Peer {
+	var prunedPeers []Peer
+	for _, peer := range peers {
+		// if bytes.Equal(peer.PeerID, clientID) {
+		// 	continue
+		// }
+		if peer.Port == 6881 {
+			continue // TODO: what the fuck
+		}
+		prunedPeers = append(prunedPeers, peer)
+	}
+
+	return prunedPeers
 }
 
 func calculateInfoHash(info map[string]interface{}) ([]byte, error) {
@@ -75,7 +119,7 @@ func calculateInfoHash(info map[string]interface{}) ([]byte, error) {
 
 func doRequest(announceURL string, queryParams map[string]string) (*http.Response, error) {
 	client := http.DefaultClient
-	req, _ := http.NewRequest(http.MethodGet, announceURL+"/announce", nil)
+	req, _ := http.NewRequest(http.MethodGet, announceURL, nil)
 	q := req.URL.Query()
 
 	for k, v := range queryParams {
@@ -84,12 +128,5 @@ func doRequest(announceURL string, queryParams map[string]string) (*http.Respons
 
 	req.URL.RawQuery = q.Encode()
 
-	// make GET request to tracker
 	return client.Do(req)
-}
-
-func newClientID() string {
-	clientID := make([]byte, 20)
-	rand.Read(clientID)
-	return string(clientID)
 }
