@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/go-errors/errors"
+  packages = ["."]
+  revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
+  version = "v1.0.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/jackpal/bencode-go"
   packages = ["."]
@@ -10,6 +16,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e39f5d5a1d603be72b4324ca20692a050e82ca0bb2737ef7c2c531dbcc0ae6cc"
+  inputs-digest = "dec82d8f0e8555bf77e34e0525237a465c752d6711df94203efc323d50502d9b"
   solver-name = "gps-cdcl"
   solver-version = 1

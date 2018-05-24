@@ -40,3 +40,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/jackpal/bencode-go"
+
+[[constraint]]
+  name = "github.com/go-errors/errors"
+  version = "1.0.1"
