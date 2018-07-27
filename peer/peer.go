@@ -3,7 +3,6 @@ package peer
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -41,7 +40,7 @@ func (c *PeerClientImpl) ConnectAndDownload() error {
 
 	for _, peer := range c.peers {
 		fmt.Println(peer.IP, peer.Port)
-		err := handshakeWithPeer(peer.IP, peer.Port, c.infoHash, c.peerID)
+		err := handshakeWithPeer(peer, c.infoHash, c.peerID)
 		if err != nil {
 			return errors.Wrap(err, 0)
 		}
@@ -49,26 +48,23 @@ func (c *PeerClientImpl) ConnectAndDownload() error {
 	return nil
 }
 
-func handshakeWithPeer(address string, port int, infoHash, peerID []byte) error {
-	addr := fmt.Sprintf("[" + address + "]:" + strconv.Itoa(port))
+func handshakeWithPeer(peer tracker.Peer, infoHash, peerID []byte) error {
+	addr := fmt.Sprintf("[" + peer.IP + "]:" + strconv.Itoa(peer.Port))
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
 
 	handshake := constructHandshake(infoHash, peerID)
+	// make the handshake
+	err = binary.Write(conn, binary.BigEndian, &handshake)
 
-	defer conn.Close()
-	binary.Write(conn, binary.BigEndian, &handshake)
+	// save the connection on the peer
+	peer.Connection = &conn
 
 	if err != nil {
 		return errors.Wrap(err, 0)
 	}
-
-	buf := make([]byte, 1024)
-	n, _ := conn.Read(buf)
-
-	log.Printf("Receive: %s", buf[:n])
 
 	return nil
 

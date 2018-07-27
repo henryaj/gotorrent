@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 
 	"github.com/go-errors/errors"
@@ -28,9 +29,10 @@ type announceResponse struct {
 }
 
 type Peer struct {
-	IP     string `bencode:"complete"`
-	PeerID []byte `bencode:"peer id"`
-	Port   int    `bencode:"port"`
+	IP         string `bencode:"complete"`
+	PeerID     []byte `bencode:"peer id"`
+	Port       int    `bencode:"port"`
+	Connection *net.Conn
 }
 
 func NewTrackerClient(m map[string]interface{}, clientID []byte) *TrackerClientImpl {
