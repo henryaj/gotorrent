@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"math/rand"
 	"os"
 
@@ -13,13 +14,13 @@ import (
 func main() {
 	torrentPath := os.Args[1]
 
-	l := loader.NewTorrentLoader()
-	err := l.Load(torrentPath)
+	torrent, err := ioutil.ReadFile(torrentPath)
 	if err != nil {
 		panic(err)
 	}
 
-	metadata, infoHash, err := l.Decode()
+	l := loader.NewTorrentLoader()
+	metadata, infoHash, err := l.Decode(torrent)
 	if err != nil {
 		panic(err.(*errors.Error).ErrorStack())
 	}

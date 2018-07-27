@@ -3,39 +3,27 @@ package loader
 import (
 	"bytes"
 	"crypto/sha1"
-	"os"
 
 	"github.com/go-errors/errors"
 	bencode "github.com/jackpal/bencode-go"
 )
 
+//TorrentLoader is a utility for decoding "bencoded" torrent metadata
 type TorrentLoader interface {
-	Load(string) error
-	Decode() (map[string]interface{}, []byte, error)
+	Decode([]byte) (map[string]interface{}, []byte, error)
 }
 
-type TorrentLoaderImpl struct {
-	path string
-	file *os.File
+type torrentLoaderImpl struct {
 }
 
+//NewTorrentLoader creates a new torrent loader
 func NewTorrentLoader() TorrentLoader {
-	return &TorrentLoaderImpl{}
+	return &torrentLoaderImpl{}
 }
 
-func (f *TorrentLoaderImpl) Load(path string) error {
-	f.path = path
-	torrentFile, err := os.Open(path)
-	if err != nil {
-		return errors.Wrap(err, 0)
-	}
-
-	f.file = torrentFile
-	return nil
-}
-
-func (f *TorrentLoaderImpl) Decode() (map[string]interface{}, []byte, error) {
-	m, err := bencode.Decode(f.file)
+func (f *torrentLoaderImpl) Decode(inBytes []byte) (map[string]interface{}, []byte, error) {
+	b := bytes.NewReader(inBytes)
+	m, err := bencode.Decode(b)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, 0)
 	}
